@@ -1,0 +1,302 @@
+{
+  "name": "json-language-sync",
+  "displayName": "JSON Language Sync",
+  "description": "Synchronize JSON language files with batched translation, field backfill, and in-panel preview.",
+  "version": "0.3.0",
+  "publisher": "oNiwa",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/daibh/json-language-sync"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "i18n",
+    "l10n",
+    "translation",
+    "json",
+    "language",
+    "gitlab"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": [
+      {
+        "title": "JSON Language Sync: Language Files",
+        "properties": {
+          "languageSync.languagesFolder": {
+            "type": "string",
+            "default": "assets/languages",
+            "markdownDescription": "Workspace-relative languages folder path. Example: `assets/languages`."
+          },
+          "languageSync.defaultLanguageCode": {
+            "type": "string",
+            "default": "en-US",
+            "markdownDescription": "Default language file code. Used as source file `<code>.json`."
+          },
+          "languageSync.defaultAliasFile": {
+            "type": "string",
+            "default": "default.json",
+            "markdownDescription": "Alias filename that should mirror the default language content."
+          },
+          "languageSync.itemTemplate": {
+            "type": "object",
+            "default": {},
+            "markdownDescription": "Optional JSON template that defines each language item structure. Leave empty to preserve the existing file shape."
+          },
+          "languageSync.keyField": {
+            "type": "string",
+            "default": "key",
+            "markdownDescription": "Field name used as unique identity for language items."
+          },
+          "languageSync.translatableFields": {
+            "type": "string",
+            "default": "text",
+            "markdownDescription": "Fields to translate separated by `|`. Example: `text|description`."
+          },
+          "languageSync.sortOnSave": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Sort items by key when saving language files. Ignored for remote merge command."
+          }
+        }
+      },
+      {
+        "title": "JSON Language Sync: Processing",
+        "properties": {
+          "languageSync.processing.chunkSize": {
+            "type": "number",
+            "default": 25,
+            "minimum": 1,
+            "markdownDescription": "Chunk size for translation workloads."
+          },
+          "languageSync.processing.maxParallel": {
+            "type": "number",
+            "default": 4,
+            "minimum": 1,
+            "markdownDescription": "Maximum number of chunks processed in parallel."
+          },
+          "languageSync.processing.translationBatchItems": {
+            "type": "number",
+            "default": 25,
+            "minimum": 1,
+            "markdownDescription": "Number of translation items grouped into one translation request."
+          },
+          "languageSync.translation.provider": {
+            "type": "string",
+            "enum": [
+              "ai",
+              "mcp"
+            ],
+            "default": "ai",
+            "markdownDescription": "Translation provider: direct AI endpoint or MCP command."
+          }
+        }
+      },
+      {
+        "title": "JSON Language Sync: AI Translation",
+        "properties": {
+          "languageSync.ai.endpoint": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "AI translation endpoint URL. For OpenAI, you can use either `https://api.openai.com/v1` or the full `https://api.openai.com/v1/chat/completions` endpoint."
+          },
+          "languageSync.ai.accessTokenEnvVar": {
+            "type": "string",
+            "default": "AI_ACCESS_TOKEN",
+            "markdownDescription": "Environment variable name holding the AI access token."
+          },
+          "languageSync.ai.model": {
+            "type": "string",
+            "default": "gpt-4.1-mini",
+            "markdownDescription": "AI model name used for translation requests."
+          }
+        }
+      },
+      {
+        "title": "JSON Language Sync: MCP Translation",
+        "properties": {
+          "languageSync.mcp.command": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "MCP executable command used for translation."
+          },
+          "languageSync.mcp.args": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "markdownDescription": "MCP command arguments. Supports placeholders: `{source}`, `{target}`, `{text}`."
+          }
+        }
+      },
+      {
+        "title": "JSON Language Sync: Git Integration",
+        "properties": {
+          "languageSync.gitlab.allowInsecure": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Allow insecure TLS connections for git operations against GitLab."
+          }
+        }
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "languageSync",
+          "title": "Language Sync",
+          "icon": "resources/icons/activity-bar.svg"
+        }
+      ]
+    },
+    "views": {
+      "languageSync": [
+        {
+          "id": "languageSync.actions",
+          "name": "Actions",
+          "icon": "resources/icons/activity-bar.svg"
+        },
+        {
+          "id": "languageSync.files",
+          "name": "Files"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "languageSync.actions",
+        "contents": "[Open Settings](command:languageSync.openSettings)\n\n[Remove UTF-8 BOM](command:languageSync.removeUtf8Bom)\n\n[Sync Missing To Default](command:languageSync.syncMissingToDefault)\n\n[Sync Missing And Translate](command:languageSync.syncMissingAndTranslate)\n\n[Merge From Remote Branch](command:languageSync.mergeFromRemoteBranch)\n\n[Validate Language Files](command:languageSync.validateFiles)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "languageSync.openSettings",
+        "title": "Language Sync: Open Settings",
+        "category": "Language Sync",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "languageSync.removeUtf8Bom",
+        "title": "Language Sync: Remove UTF-8 BOM",
+        "category": "Language Sync",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "languageSync.syncMissingToDefault",
+        "title": "Language Sync: Sync Missing Items To Default",
+        "category": "Language Sync",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "languageSync.syncMissingAndTranslate",
+        "title": "Language Sync: Sync Missing Items And Translate",
+        "category": "Language Sync",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "languageSync.mergeFromRemoteBranch",
+        "title": "Language Sync: Pull/Rebase/Merge Languages From Remote Branch",
+        "category": "Language Sync",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "languageSync.validateFiles",
+        "title": "Language Sync: Validate Language Files",
+        "category": "Language Sync",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "languageSync.refreshFilesView",
+        "title": "Language Sync: Refresh Files View",
+        "category": "Language Sync",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "languageSync.openSettings",
+          "when": "view == languageSync.actions",
+          "group": "navigation@1"
+        },
+        {
+          "command": "languageSync.removeUtf8Bom",
+          "when": "view == languageSync.actions",
+          "group": "navigation@2"
+        },
+        {
+          "command": "languageSync.syncMissingToDefault",
+          "when": "view == languageSync.actions",
+          "group": "navigation@3"
+        },
+        {
+          "command": "languageSync.syncMissingAndTranslate",
+          "when": "view == languageSync.actions",
+          "group": "navigation@4"
+        },
+        {
+          "command": "languageSync.mergeFromRemoteBranch",
+          "when": "view == languageSync.actions",
+          "group": "navigation@5"
+        },
+        {
+          "command": "languageSync.validateFiles",
+          "when": "view == languageSync.actions",
+          "group": "navigation@6"
+        },
+        {
+          "command": "languageSync.refreshFilesView",
+          "when": "view == languageSync.files",
+          "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "languageSync.openSettings"
+        },
+        {
+          "command": "languageSync.removeUtf8Bom"
+        },
+        {
+          "command": "languageSync.syncMissingToDefault"
+        },
+        {
+          "command": "languageSync.syncMissingAndTranslate"
+        },
+        {
+          "command": "languageSync.mergeFromRemoteBranch"
+        },
+        {
+          "command": "languageSync.validateFiles"
+        },
+        {
+          "command": "languageSync.refreshFilesView"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1",
+    "typescript": "^5.3.0"
+  }
+}
