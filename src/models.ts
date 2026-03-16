@@ -14,7 +14,6 @@ export interface LanguageSyncConfig {
   translationBatchItems: number;
   translationProvider: TranslationProvider;
   aiEndpoint: string;
-  aiTokenEnvVar: string;
   aiModel: string;
   mcpCommand: string;
   mcpArgs: string[];

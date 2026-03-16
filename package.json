@@ -2,7 +2,7 @@
   "name": "json-language-sync",
   "displayName": "JSON Language Sync",
   "description": "Synchronize JSON language files with batched translation, field backfill, and in-panel preview.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "oNiwa",
   "license": "MIT",
   "repository": {
@@ -109,11 +109,6 @@
             "default": "",
             "markdownDescription": "AI translation endpoint URL. For OpenAI, you can use either `https://api.openai.com/v1` or the full `https://api.openai.com/v1/chat/completions` endpoint."
           },
-          "languageSync.ai.accessTokenEnvVar": {
-            "type": "string",
-            "default": "AI_ACCESS_TOKEN",
-            "markdownDescription": "Environment variable name holding the AI access token."
-          },
           "languageSync.ai.model": {
             "type": "string",
             "default": "gpt-4.1-mini",
@@ -216,6 +211,12 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "languageSync.configureAiToken",
+        "title": "Language Sync: Configure AI Access Token",
+        "category": "Language Sync",
+        "icon": "$(key)"
+      },
+      {
         "command": "languageSync.refreshFilesView",
         "title": "Language Sync: Refresh Files View",
         "category": "Language Sync",
@@ -236,12 +237,17 @@
         },
         {
           "command": "languageSync.syncMissingToDefault",
-          "when": "view == languageSync.actions",
+          "when": "view == languageSync.actions && languageSync.translationReady",
           "group": "navigation@3"
         },
         {
           "command": "languageSync.syncMissingAndTranslate",
-          "when": "view == languageSync.actions",
+          "when": "view == languageSync.actions && languageSync.translationReady",
+          "group": "navigation@4"
+        },
+        {
+          "command": "languageSync.configureAiToken",
+          "when": "view == languageSync.actions && !languageSync.translationReady",
           "group": "navigation@4"
         },
         {
@@ -251,7 +257,7 @@
         },
         {
           "command": "languageSync.validateFiles",
-          "when": "view == languageSync.actions",
+          "when": "view == languageSync.actions && languageSync.translationReady",
           "group": "navigation@6"
         },
         {
@@ -268,16 +274,23 @@
           "command": "languageSync.removeUtf8Bom"
         },
         {
-          "command": "languageSync.syncMissingToDefault"
+          "command": "languageSync.syncMissingToDefault",
+          "when": "languageSync.translationReady"
         },
         {
-          "command": "languageSync.syncMissingAndTranslate"
+          "command": "languageSync.syncMissingAndTranslate",
+          "when": "languageSync.translationReady"
         },
         {
           "command": "languageSync.mergeFromRemoteBranch"
         },
         {
-          "command": "languageSync.validateFiles"
+          "command": "languageSync.validateFiles",
+          "when": "languageSync.translationReady"
+        },
+        {
+          "command": "languageSync.configureAiToken",
+          "when": "!languageSync.translationReady"
         },
         {
           "command": "languageSync.refreshFilesView"

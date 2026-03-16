@@ -35,7 +35,6 @@ function createConfig(workspaceRoot: string): LanguageSyncConfig {
     translationBatchItems: 2,
     translationProvider: 'ai',
     aiEndpoint: '',
-    aiTokenEnvVar: 'AI_ACCESS_TOKEN',
     aiModel: 'test-model',
     mcpCommand: '',
     mcpArgs: [],

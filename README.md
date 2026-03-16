@@ -11,7 +11,8 @@ VS Code extension to synchronize and translate JSON language files.
 - Configurable unique key field for item identity.
 - Configurable translatable field list separated by |.
 - Translation provider selection: AI endpoint or MCP command.
-- AI settings: endpoint, access token env var, model.
+- AI settings: endpoint and model.
+- Secure token setup command with encrypted Windows user-scope storage.
 - MCP settings: command and argument template.
 - Git-based GitLab integration aligned with skills-sync-extension behavior.
 - UTF-8 BOM cleanup command for all language files.
@@ -40,6 +41,7 @@ VS Code extension to synchronize and translate JSON language files.
 - Language Sync: Sync Missing Items And Translate
 - Language Sync: Pull/Rebase/Merge Languages From Remote Branch
 - Language Sync: Validate Language Files
+- Language Sync: Configure AI Access Token
 - Language Sync: Refresh Files View
 
 ## Sidebar buttons
@@ -47,6 +49,7 @@ VS Code extension to synchronize and translate JSON language files.
 Open the Language Sync activity bar icon, then use the Actions view buttons to run all commands quickly.
 
 The Files view in the same activity bar shows each language file and its items so you can preview results without leaving the extension panel.
+When AI provider is selected and token is not ready, protected actions are disabled until Configure AI Access Token is completed.
 
 ## Remote merge workflow
 
@@ -93,3 +96,9 @@ Validation runs on save, on configuration changes, and when running Validate Lan
 
 - For OpenAI, `languageSync.ai.endpoint` may be either `https://api.openai.com/v1` or `https://api.openai.com/v1/chat/completions`.
 - If the base OpenAI URL is provided, the extension automatically routes requests to the chat completions endpoint.
+
+## AI token notes
+
+- The extension stores the AI token using the fixed environment variable `EXT_LANG_AI_TOKEN`.
+- On Windows, the token is encrypted using DPAPI (CurrentUser scope) before being written to User environment variables.
+- On startup, token readiness is validated and translation-protected actions are enabled only when a valid token can be decrypted/read.

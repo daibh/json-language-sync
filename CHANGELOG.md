@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.4.0 - 2026-03-16
+
+### Added
+
+- Secure AI token configuration command to capture token input from the UI.
+- Windows DPAPI (CurrentUser scope) encryption for persisted AI tokens.
+- Fixed token variable name EXT_LANG_AI_TOKEN for encrypted token storage.
+
+### Changed
+
+- Removed configurable AI token environment variable setting; token storage now uses a fixed secure variable.
+- Action availability now depends on translation readiness.
+- Actions panel now shows Configure AI Token when token is missing or invalid.
+
+### Fixed
+
+- Disabled Sync Missing To Default and Validate Language Files when AI token is invalid.
+- Added runtime guards that block protected commands until token configuration is valid.
+
 ## 0.3.0 - 2026-03-16
 
 ### Added

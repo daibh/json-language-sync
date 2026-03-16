@@ -11,7 +11,11 @@ interface Translator {
 }
 
 class AiTranslator implements Translator {
-  constructor(private readonly config: LanguageSyncConfig, private readonly logger: Logger) {}
+  constructor(
+    private readonly config: LanguageSyncConfig,
+    private readonly logger: Logger,
+    private readonly token: string | undefined
+  ) {}
 
   async translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
     const [translated] = await this.translateTexts([text], sourceLanguage, targetLanguage);
@@ -58,14 +62,13 @@ class AiTranslator implements Translator {
       throw new Error('Missing configuration: languageSync.ai.endpoint');
     }
 
-    const token = await this.resolveAiToken();
-    if (!token) {
+    if (!this.token) {
       throw new Error(
-        `Missing AI token in environment variable: ${this.config.aiTokenEnvVar}. ` +
-          'Set it in User/System environment variables and fully restart VS Code.'
+        'AI access token is not configured. Use the "Language Sync: Configure AI Token" command to set it up.'
       );
     }
 
+    const token = this.token;
     const endpoint = this.resolveAiEndpoint();
 
     const payload = await this.requestAiCompletion(endpoint, token, [
@@ -101,14 +104,13 @@ class AiTranslator implements Translator {
       throw new Error('Missing configuration: languageSync.ai.endpoint');
     }
 
-    const token = await this.resolveAiToken();
-    if (!token) {
+    if (!this.token) {
       throw new Error(
-        `Missing AI token in environment variable: ${this.config.aiTokenEnvVar}. ` +
-          'Set it in User/System environment variables and fully restart VS Code.'
+        'AI access token is not configured. Use the "Language Sync: Configure AI Token" command to set it up.'
       );
     }
 
+    const token = this.token;
     const endpoint = this.resolveAiEndpoint();
     const indexedTexts = texts.map((text, index) => ({ index, text }));
     const payload = await this.requestAiCompletion(endpoint, token, [
@@ -258,71 +260,6 @@ class AiTranslator implements Translator {
     }
   }
 
-  private async resolveAiToken(): Promise<string | undefined> {
-    const envVarName = this.config.aiTokenEnvVar.trim();
-    if (!envVarName) {
-      return undefined;
-    }
-
-    const directValue = process.env[envVarName]?.trim();
-    if (directValue) {
-      return directValue;
-    }
-
-    // Windows environment keys are case-insensitive; process.env lookup can still miss casing differences.
-    const envVarLower = envVarName.toLowerCase();
-    for (const [key, value] of Object.entries(process.env)) {
-      if (key.toLowerCase() === envVarLower) {
-        const resolved = value?.trim();
-        if (resolved) {
-          return resolved;
-        }
-      }
-    }
-
-    if (process.platform !== 'win32') {
-      return undefined;
-    }
-
-    const userValue = await this.readWindowsEnvironmentVariable(envVarName, 'User');
-    if (userValue) {
-      this.logger.info(`Resolved AI token from Windows User environment variable: ${envVarName}.`);
-      return userValue;
-    }
-
-    const machineValue = await this.readWindowsEnvironmentVariable(envVarName, 'Machine');
-    if (machineValue) {
-      this.logger.info(`Resolved AI token from Windows System environment variable: ${envVarName}.`);
-      return machineValue;
-    }
-
-    return undefined;
-  }
-
-  private async readWindowsEnvironmentVariable(
-    envVarName: string,
-    target: 'User' | 'Machine'
-  ): Promise<string | undefined> {
-    const escapedName = envVarName.replace(/'/g, "''");
-
-    try {
-      const { stdout } = await execFileAsync(
-        'powershell',
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          `[Environment]::GetEnvironmentVariable('${escapedName}', '${target}')`,
-        ],
-        { windowsHide: true }
-      );
-
-      const value = stdout.trim();
-      return value.length > 0 ? value : undefined;
-    } catch {
-      return undefined;
-    }
-  }
 }
 
 class McpTranslator implements Translator {
@@ -376,11 +313,11 @@ class McpTranslator implements Translator {
 export class TranslationService {
   private readonly translator: Translator;
 
-  constructor(config: LanguageSyncConfig, logger: Logger) {
+  constructor(config: LanguageSyncConfig, logger: Logger, token?: string) {
     this.translator =
       config.translationProvider === 'mcp'
         ? new McpTranslator(config)
-        : new AiTranslator(config, logger);
+        : new AiTranslator(config, logger, token);
   }
 
   translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {

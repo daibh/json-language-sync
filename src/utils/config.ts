@@ -31,7 +31,6 @@ export function getConfig(): LanguageSyncConfig {
     ),
     translationProvider: cfg.get<'ai' | 'mcp'>('translation.provider', 'ai'),
     aiEndpoint: cfg.get<string>('ai.endpoint', '').trim(),
-    aiTokenEnvVar: cfg.get<string>('ai.accessTokenEnvVar', 'AI_ACCESS_TOKEN').trim() || 'AI_ACCESS_TOKEN',
     aiModel: cfg.get<string>('ai.model', 'gpt-4.1-mini').trim() || 'gpt-4.1-mini',
     mcpCommand: cfg.get<string>('mcp.command', '').trim(),
     mcpArgs: cfg.get<string[]>('mcp.args', []),

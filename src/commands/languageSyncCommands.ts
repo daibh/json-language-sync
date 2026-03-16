@@ -5,11 +5,13 @@ import { LanguageFilesService } from '../services/languageFilesService';
 import { TranslationService } from '../services/translationService';
 import { GitMergeService } from '../services/gitMergeService';
 import { ValidationService } from '../services/validationService';
+import { TokenService } from '../services/tokenService';
 
 export function registerLanguageSyncCommands(
   context: vscode.ExtensionContext,
   logger: Logger,
-  validationService: ValidationService
+  validationService: ValidationService,
+  tokenService: TokenService
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('languageSync.openSettings', async () => {
@@ -23,7 +25,7 @@ export function registerLanguageSyncCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('languageSync.removeUtf8Bom', async () => {
       await runGuarded(logger, async () => {
-        const service = createLanguageService(logger);
+        const service = await createLanguageService(logger, tokenService);
         const updated = await service.removeUtf8BomAll();
         await validationService.refresh();
         const message = `UTF-8 BOM cleanup done. Updated ${updated} file(s).`;
@@ -36,7 +38,8 @@ export function registerLanguageSyncCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('languageSync.syncMissingToDefault', async () => {
       await runGuarded(logger, async () => {
-        const service = createLanguageService(logger);
+        await ensureTranslationReady(tokenService);
+        const service = await createLanguageService(logger, tokenService);
         const stats = await service.syncMissingToDefault();
         await validationService.refresh();
         const message = `Sync to default completed. Files scanned: ${stats.filesProcessed}, items added: ${stats.itemsAdded}.`;
@@ -49,7 +52,7 @@ export function registerLanguageSyncCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('languageSync.syncMissingAndTranslate', async () => {
       await runGuarded(logger, async () => {
-        const service = createLanguageService(logger);
+        const service = await createLanguageService(logger, tokenService);
         const stats = await service.syncMissingAndTranslate();
         await validationService.refresh();
         const message = `Translation sync completed. Files updated: ${stats.filesProcessed}, items added: ${stats.itemsAdded}, items translated: ${stats.itemsTranslated}.`;
@@ -63,7 +66,7 @@ export function registerLanguageSyncCommands(
     vscode.commands.registerCommand('languageSync.mergeFromRemoteBranch', async () => {
       await runGuarded(logger, async () => {
         const config = getConfig();
-        const service = createLanguageService(logger);
+        const service = await createLanguageService(logger, tokenService);
         const gitMergeService = new GitMergeService(config, config.workspaceRoot, service, logger);
 
         const strategy = await vscode.window.showQuickPick(['pull', 'rebase', 'merge'], {
@@ -99,6 +102,7 @@ export function registerLanguageSyncCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('languageSync.validateFiles', async () => {
       await runGuarded(logger, async () => {
+        await ensureTranslationReady(tokenService);
         await validationService.refresh();
         const message = 'Language file validation completed.';
         logger.info(message);
@@ -108,10 +112,26 @@ export function registerLanguageSyncCommands(
   );
 }
 
-function createLanguageService(logger: Logger): LanguageFilesService {
+async function ensureTranslationReady(tokenService: TokenService): Promise<void> {
   const config = getConfig();
-  const translator = new TranslationService(config, logger);
-  return new LanguageFilesService(config, translator, logger);
+  if (config.translationProvider !== 'ai') {
+    return;
+  }
+
+  const isReady = await tokenService.isConfigured();
+  if (!isReady) {
+    throw new Error(
+      'AI token is not configured or invalid. Run "Language Sync: Configure AI Access Token" first.'
+    );
+  }
+}
+
+function createLanguageService(logger: Logger, tokenService: TokenService): Promise<LanguageFilesService> {
+  const config = getConfig();
+  return tokenService.readToken().then((token) => {
+    const translator = new TranslationService(config, logger, token);
+    return new LanguageFilesService(config, translator, logger);
+  });
 }
 
 async function runGuarded(logger: Logger, action: () => Promise<void>): Promise<void> {
