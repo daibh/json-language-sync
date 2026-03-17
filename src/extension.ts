@@ -21,7 +21,16 @@ async function updateTranslationReady(
   let ready = false;
   try {
     const config = getConfig();
-    ready = config.translationProvider !== 'ai' || (await tokenService.isConfigured());
+    if (config.translationProvider === 'copilot') {
+      const selector: vscode.LanguageModelChatSelector = { vendor: 'copilot' };
+      if (config.copilotModel) {
+        selector.family = config.copilotModel;
+      }
+      const models = await vscode.lm.selectChatModels(selector);
+      ready = models.length > 0;
+    } else {
+      ready = await tokenService.isConfigured();
+    }
   } catch {
     ready = false;
   }
@@ -99,6 +108,12 @@ export function activate(context: vscode.ExtensionContext): void {
         void filesProvider.refresh();
         void updateTranslationReady(tokenService, actionProvider);
       }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.lm.onDidChangeChatModels(() => {
+      void updateTranslationReady(tokenService, actionProvider);
     })
   );
 

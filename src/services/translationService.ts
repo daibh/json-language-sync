@@ -1,9 +1,57 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import * as vscode from 'vscode';
 import type { LanguageSyncConfig } from '../models';
 import { Logger } from '../utils/logger';
 
-const execFileAsync = promisify(execFile);
+function parseBatchTranslationResponse(rawText: string, expectedCount: number): string[] | undefined {
+  if (!rawText) {
+    return undefined;
+  }
+
+  const cleaned = rawText
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  try {
+    const parsed = JSON.parse(cleaned) as unknown;
+    const entries = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as { translations?: unknown }).translations)
+      ? (parsed as { translations: unknown[] }).translations
+      : undefined;
+
+    if (!entries || entries.length !== expectedCount) {
+      return undefined;
+    }
+
+    const output: Array<string | undefined> = new Array(expectedCount);
+    for (const entry of entries) {
+      const item = entry as { index?: number; text?: unknown; translation?: unknown };
+      const index = item.index;
+      if (typeof index !== 'number' || index < 0 || index >= expectedCount) {
+        return undefined;
+      }
+
+      const value =
+        typeof item.text === 'string'
+          ? item.text
+          : typeof item.translation === 'string'
+          ? item.translation
+          : '';
+
+      output[index] = value;
+    }
+
+    if (output.some((value) => value === undefined)) {
+      return undefined;
+    }
+
+    return output.map((value) => value ?? '');
+  } catch {
+    return undefined;
+  }
+}
 
 interface Translator {
   translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string>;
@@ -134,7 +182,7 @@ class AiTranslator implements Translator {
     const rawText =
       payload.choices?.[0]?.message?.content?.trim() ?? payload.translation?.trim() ?? payload.text?.trim() ?? '';
 
-    const parsed = this.parseBatchTranslationResponse(rawText, texts.length);
+    const parsed = parseBatchTranslationResponse(rawText, texts.length);
     if (parsed) {
       return parsed;
     }
@@ -183,57 +231,6 @@ class AiTranslator implements Translator {
     };
   }
 
-  private parseBatchTranslationResponse(rawText: string, expectedCount: number): string[] | undefined {
-    if (!rawText) {
-      return undefined;
-    }
-
-    const cleaned = rawText
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim();
-
-    try {
-      const parsed = JSON.parse(cleaned) as unknown;
-      const entries = Array.isArray(parsed)
-        ? parsed
-        : Array.isArray((parsed as { translations?: unknown }).translations)
-        ? (parsed as { translations: unknown[] }).translations
-        : undefined;
-
-      if (!entries || entries.length !== expectedCount) {
-        return undefined;
-      }
-
-      const output: Array<string | undefined> = new Array(expectedCount);
-      for (const entry of entries) {
-        const item = entry as { index?: number; text?: unknown; translation?: unknown };
-        const index = item.index;
-        if (typeof index !== 'number' || index < 0 || index >= expectedCount) {
-          return undefined;
-        }
-
-        const value =
-          typeof item.text === 'string'
-            ? item.text
-            : typeof item.translation === 'string'
-            ? item.translation
-            : '';
-
-        output[index] = value;
-      }
-
-      if (output.some((value) => value === undefined)) {
-        return undefined;
-      }
-
-      return output.map((value) => value ?? '');
-    } catch {
-      return undefined;
-    }
-  }
-
   private resolveAiEndpoint(): string {
     const rawEndpoint = this.config.aiEndpoint.trim();
 
@@ -262,39 +259,15 @@ class AiTranslator implements Translator {
 
 }
 
-class McpTranslator implements Translator {
-  constructor(private readonly config: LanguageSyncConfig) {}
+class CopilotTranslator implements Translator {
+  constructor(
+    private readonly modelFamily: string,
+    private readonly logger: Logger
+  ) {}
 
   async translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
-    const content = String(text ?? '');
-    if (!content.trim() || sourceLanguage === targetLanguage) {
-      return content;
-    }
-
-    if (!this.config.mcpCommand) {
-      throw new Error('Missing configuration: languageSync.mcp.command');
-    }
-
-    const args =
-      this.config.mcpArgs.length > 0
-        ? this.config.mcpArgs.map((part) =>
-            part
-              .split('{source}')
-              .join(sourceLanguage)
-              .split('{target}')
-              .join(targetLanguage)
-              .split('{text}')
-              .join(content)
-          )
-        : [sourceLanguage, targetLanguage, content];
-
-    const { stdout } = await execFileAsync(this.config.mcpCommand, args, {
-      windowsHide: true,
-      maxBuffer: 2 * 1024 * 1024,
-    });
-
-    const translated = stdout.trim();
-    return translated || content;
+    const [translated] = await this.translateTexts([text], sourceLanguage, targetLanguage);
+    return translated;
   }
 
   async translateTexts(
@@ -302,11 +275,105 @@ class McpTranslator implements Translator {
     sourceLanguage: string,
     targetLanguage: string
   ): Promise<string[]> {
-    const results: string[] = [];
-    for (const text of texts) {
-      results.push(await this.translateText(text, sourceLanguage, targetLanguage));
+    if (texts.length === 0) {
+      return [];
     }
-    return results;
+
+    const normalizedTexts = texts.map((text) => String(text ?? ''));
+    if (sourceLanguage === targetLanguage) {
+      return normalizedTexts;
+    }
+
+    const hasNonEmptyText = normalizedTexts.some((text) => text.trim().length > 0);
+    if (!hasNonEmptyText) {
+      return normalizedTexts;
+    }
+
+    if (normalizedTexts.length === 1) {
+      return [await this.translateSingle(normalizedTexts[0], sourceLanguage, targetLanguage)];
+    }
+
+    return this.translateBatch(normalizedTexts, sourceLanguage, targetLanguage);
+  }
+
+  private async selectModel(): Promise<vscode.LanguageModelChat> {
+    const selector: vscode.LanguageModelChatSelector = { vendor: 'copilot' };
+    if (this.modelFamily) {
+      selector.family = this.modelFamily;
+    }
+    const models = await vscode.lm.selectChatModels(selector);
+    if (models.length === 0) {
+      const familyHint = this.modelFamily ? ` (family: ${this.modelFamily})` : '';
+      throw new Error(
+        `No GitHub Copilot models are available${familyHint}. ` +
+        'Ensure GitHub Copilot Chat is installed and you are signed in.'
+      );
+    }
+    return models[0];
+  }
+
+  private async translateSingle(
+    content: string,
+    sourceLanguage: string,
+    targetLanguage: string
+  ): Promise<string> {
+    const model = await this.selectModel();
+    const response = await model.sendRequest(
+      [
+        vscode.LanguageModelChatMessage.User(
+          'You are a translation engine. Return only the translated text with no explanations or markdown.\n' +
+          `Translate from ${sourceLanguage} to ${targetLanguage}: ${content}`
+        ),
+      ],
+      {}
+    );
+    let result = '';
+    for await (const text of response.text) {
+      result += text;
+    }
+    const translated = result.trim();
+    if (!translated) {
+      this.logger.warn('Copilot response did not include translated text. Returning source content.');
+      return content;
+    }
+    return translated;
+  }
+
+  private async translateBatch(
+    texts: string[],
+    sourceLanguage: string,
+    targetLanguage: string
+  ): Promise<string[]> {
+    const model = await this.selectModel();
+    const indexedTexts = texts.map((text, index) => ({ index, text }));
+    const response = await model.sendRequest(
+      [
+        vscode.LanguageModelChatMessage.User(
+          'You are a translation engine. Translate all items and return strict JSON only. ' +
+          'No markdown, no commentary.\n' +
+          `Translate each item from ${sourceLanguage} to ${targetLanguage}. ` +
+          'Return JSON in this exact shape: ' +
+          '{"translations":[{"index":0,"text":"..."}]}. ' +
+          'Keep item count and indexes unchanged.\n' +
+          JSON.stringify(indexedTexts)
+        ),
+      ],
+      {}
+    );
+    let rawText = '';
+    for await (const text of response.text) {
+      rawText += text;
+    }
+    const parsed = parseBatchTranslationResponse(rawText.trim(), texts.length);
+    if (parsed) {
+      return parsed;
+    }
+    this.logger.warn('Copilot batch translation response parsing failed. Falling back to per-item translation.');
+    const fallbackResults: string[] = [];
+    for (const text of texts) {
+      fallbackResults.push(await this.translateSingle(text, sourceLanguage, targetLanguage));
+    }
+    return fallbackResults;
   }
 }
 
@@ -314,10 +381,11 @@ export class TranslationService {
   private readonly translator: Translator;
 
   constructor(config: LanguageSyncConfig, logger: Logger, token?: string) {
-    this.translator =
-      config.translationProvider === 'mcp'
-        ? new McpTranslator(config)
-        : new AiTranslator(config, logger, token);
+    if (config.translationProvider === 'copilot') {
+      this.translator = new CopilotTranslator(config.copilotModel, logger);
+    } else {
+      this.translator = new AiTranslator(config, logger, token);
+    }
   }
 
   translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {

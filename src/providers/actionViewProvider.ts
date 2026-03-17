@@ -81,13 +81,8 @@ export class ActionViewProvider implements vscode.TreeDataProvider<vscode.TreeIt
 
     nodes.push(
       new ActionNode('Merge From Remote Branch', 'languageSync.mergeFromRemoteBranch'),
+      new ActionNode('Validate Language Files', 'languageSync.validateFiles'),
     );
-
-    if (this.translationReady) {
-      nodes.push(new ActionNode('Validate Language Files', 'languageSync.validateFiles'));
-    } else {
-      nodes.push(new DisabledActionNode('Validate Language Files', 'Requires valid AI token'));
-    }
 
     return nodes;
   }

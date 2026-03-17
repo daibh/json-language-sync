@@ -10,10 +10,10 @@ VS Code extension to synchronize and translate JSON language files.
 - Optional language item structure template (JSON object).
 - Configurable unique key field for item identity.
 - Configurable translatable field list separated by |.
-- Translation provider selection: AI endpoint or MCP command.
+- Translation provider selection: AI endpoint or GitHub Copilot Chat.
 - AI settings: endpoint and model.
 - Secure token setup command with encrypted Windows user-scope storage.
-- MCP settings: command and argument template.
+- GitHub Copilot Chat provider: delegates translation to the installed Copilot extension, no separate token required. Configurable model family.
 - Git-based GitLab integration aligned with skills-sync-extension behavior.
 - UTF-8 BOM cleanup command for all language files.
 - Sync missing items from localized files back to default file.
@@ -24,6 +24,7 @@ VS Code extension to synchronize and translate JSON language files.
 - Configurable number of translation items per batch request.
 - Remote branch merge workflow using temporary git worktree to reduce conflicts.
 - Built-in diagnostics for invalid file structure, missing keys, and duplicate keys.
+- Auto-deduplication on validate: keeps the first instance of each duplicate key and removes the rest.
 - Dedicated output log channel named Language Sync.
 - Activity bar files view for previewing language files and translated values.
 
@@ -49,7 +50,8 @@ VS Code extension to synchronize and translate JSON language files.
 Open the Language Sync activity bar icon, then use the Actions view buttons to run all commands quickly.
 
 The Files view in the same activity bar shows each language file and its items so you can preview results without leaving the extension panel.
-When AI provider is selected and token is not ready, protected actions are disabled until Configure AI Access Token is completed.
+Validate Language Files is always accessible regardless of translation provider state.
+When AI provider is selected and token is not ready, translation-dependent actions (Sync Missing And Translate) are disabled until Configure AI Access Token is completed.
 
 ## Remote merge workflow
 
@@ -85,6 +87,8 @@ Validation diagnostics are produced in Problems for:
 - Invalid JSON
 
 Validation runs on save, on configuration changes, and when running Validate Language Files.
+
+When Validate Language Files is run explicitly, duplicate key items are automatically removed from all language files (first occurrence kept) before diagnostics are collected. The information message reports how many duplicates were removed and from how many files.
 
 ## Build and test
 

@@ -102,9 +102,14 @@ export function registerLanguageSyncCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('languageSync.validateFiles', async () => {
       await runGuarded(logger, async () => {
-        await ensureTranslationReady(tokenService);
+        const deduped = await validationService.deduplicateFiles();
         await validationService.refresh();
-        const message = 'Language file validation completed.';
+        const parts: string[] = [];
+        if (deduped.itemsRemoved > 0) {
+          parts.push(`Removed ${deduped.itemsRemoved} duplicate item(s) from ${deduped.filesFixed} file(s).`);
+        }
+        parts.push('Validation completed.');
+        const message = parts.join(' ');
         logger.info(message);
         void vscode.window.showInformationMessage(message);
       });
@@ -114,10 +119,9 @@ export function registerLanguageSyncCommands(
 
 async function ensureTranslationReady(tokenService: TokenService): Promise<void> {
   const config = getConfig();
-  if (config.translationProvider !== 'ai') {
+  if (config.translationProvider === 'copilot') {
     return;
   }
-
   const isReady = await tokenService.isConfigured();
   if (!isReady) {
     throw new Error(

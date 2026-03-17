@@ -2,7 +2,7 @@
   "name": "json-language-sync",
   "displayName": "JSON Language Sync",
   "description": "Synchronize JSON language files with batched translation, field backfill, and in-panel preview.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "oNiwa",
   "license": "MIT",
   "repository": {
@@ -10,8 +10,9 @@
     "url": "https://github.com/daibh/json-language-sync"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.111.0"
   },
+  "extensionDependencies": [],
   "categories": [
     "Other"
   ],
@@ -34,8 +35,8 @@
         "properties": {
           "languageSync.languagesFolder": {
             "type": "string",
-            "default": "assets/languages",
-            "markdownDescription": "Workspace-relative languages folder path. Example: `assets/languages`."
+            "default": "src/assets/languages",
+            "markdownDescription": "Workspace-relative languages folder path. Example: `src/assets/languages`."
           },
           "languageSync.defaultLanguageCode": {
             "type": "string",
@@ -94,10 +95,14 @@
             "type": "string",
             "enum": [
               "ai",
-              "mcp"
+              "copilot"
             ],
-            "default": "ai",
-            "markdownDescription": "Translation provider: direct AI endpoint or MCP command."
+            "enumDescriptions": [
+              "Direct AI endpoint (requires languageSync.ai.endpoint and token).",
+              "GitHub Copilot Chat (requires GitHub Copilot Chat extension to be installed)."
+            ],
+            "default": "copilot",
+            "markdownDescription": "Translation provider: direct AI endpoint, MCP command, or GitHub Copilot Chat."
           }
         }
       },
@@ -117,20 +122,12 @@
         }
       },
       {
-        "title": "JSON Language Sync: MCP Translation",
+        "title": "JSON Language Sync: Copilot Translation",
         "properties": {
-          "languageSync.mcp.command": {
+          "languageSync.copilot.model": {
             "type": "string",
-            "default": "",
-            "markdownDescription": "MCP executable command used for translation."
-          },
-          "languageSync.mcp.args": {
-            "type": "array",
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "markdownDescription": "MCP command arguments. Supports placeholders: `{source}`, `{target}`, `{text}`."
+            "default": "gpt-4.1",
+            "markdownDescription": "GitHub Copilot model family to use for translation (e.g. `gpt-4o`, `gpt-4.1`, `claude-sonnet-4-5`). Leave empty to use the default available model."
           }
         }
       },
@@ -257,7 +254,7 @@
         },
         {
           "command": "languageSync.validateFiles",
-          "when": "view == languageSync.actions && languageSync.translationReady",
+          "when": "view == languageSync.actions",
           "group": "navigation@6"
         },
         {
@@ -285,8 +282,7 @@
           "command": "languageSync.mergeFromRemoteBranch"
         },
         {
-          "command": "languageSync.validateFiles",
-          "when": "languageSync.translationReady"
+          "command": "languageSync.validateFiles"
         },
         {
           "command": "languageSync.configureAiToken",
@@ -308,7 +304,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.110.0",
     "@vscode/vsce": "^3.7.1",
     "typescript": "^5.3.0"
   }

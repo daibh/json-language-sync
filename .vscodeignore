@@ -5,3 +5,4 @@
 **/*.map
 **/src/**
 **/node_modules/**/.bin/**
+**/.github/**

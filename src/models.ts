@@ -1,4 +1,4 @@
-export type TranslationProvider = 'ai' | 'mcp';
+export type TranslationProvider = 'ai' | 'copilot';
 
 export interface LanguageSyncConfig {
   workspaceRoot: string;
@@ -15,8 +15,7 @@ export interface LanguageSyncConfig {
   translationProvider: TranslationProvider;
   aiEndpoint: string;
   aiModel: string;
-  mcpCommand: string;
-  mcpArgs: string[];
+  copilotModel: string;
   gitlabAllowInsecure: boolean;
 }
 

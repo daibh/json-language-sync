@@ -2,25 +2,38 @@
 
 All notable changes to this project are documented in this file.
 
-## 0.4.0 - 2026-03-16
+## 0.5.0 - 2026-03-17
 
 ### Added
 
+- GitHub Copilot Chat translation provider. Set `languageSync.translation.provider` to `copilot` to delegate all translation to the installed Copilot Chat extension without requiring a separate AI token.
+- `languageSync.copilot.model` setting to select the Copilot model family (e.g. `gpt-4o`, `gpt-4.1`, `claude-sonnet-4-5`). Defaults to `gpt-4o`.
+- Automatic Actions panel refresh when available Copilot models change (sign-in, sign-out, extension install).
 - Secure AI token configuration command to capture token input from the UI.
 - Windows DPAPI (CurrentUser scope) encryption for persisted AI tokens.
-- Fixed token variable name EXT_LANG_AI_TOKEN for encrypted token storage.
+- `languageSync.validateFiles` now auto-deduplicates language files before running diagnostics: the first item with a given key is kept and all subsequent duplicates are removed. A summary message reports the number of items removed and files affected.
 
 ### Changed
 
-- Removed configurable AI token environment variable setting; token storage now uses a fixed secure variable.
-- Action availability now depends on translation readiness.
-- Actions panel now shows Configure AI Token when token is missing or invalid.
+- Bumped minimum VS Code engine to `^1.111.0` (March 2026 release).
+- Updated `@types/vscode` to `1.110.0`.
+- Copilot translation uses `LanguageModelChatResponse.text` (string iterable) — no `LanguageModelTextPart` type narrowing needed.
+- `translationReady` context key handles both providers: `copilot` (ready when models are available), `ai` (ready when token is configured).
+- `languageSync.validateFiles` is always accessible — no longer gated on translation readiness.
+- Removed configurable AI token environment variable setting; token storage now uses the fixed variable `EXT_LANG_AI_TOKEN`.
+- Action availability depends on translation readiness; Actions panel shows Configure AI Token when token is missing or invalid.
+
+### Removed
+
+- MCP translation provider. `languageSync.translation.provider` now accepts `ai` or `copilot` only.
+- `languageSync.mcp.command` and `languageSync.mcp.args` settings.
 
 ### Fixed
 
-- Disabled Sync Missing To Default and Validate Language Files when AI token is invalid.
-- Added runtime guards that block protected commands until token configuration is valid.
+- Disabled Sync Missing And Translate when AI token is invalid.
+- Added runtime guards that block translation commands until token configuration is valid.
 
+---
 ## 0.3.0 - 2026-03-16
 
 ### Added

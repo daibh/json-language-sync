@@ -36,8 +36,7 @@ function createConfig(workspaceRoot: string): LanguageSyncConfig {
     translationProvider: 'ai',
     aiEndpoint: '',
     aiModel: 'test-model',
-    mcpCommand: '',
-    mcpArgs: [],
+    copilotModel: 'gpt-4o',
     gitlabAllowInsecure: false,
   };
 }

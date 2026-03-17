@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import type { LanguageSyncConfig } from '../models';
+import type { LanguageSyncConfig, TranslationProvider } from '../models';
 
 export function getConfig(): LanguageSyncConfig {
   const workspace = vscode.workspace.workspaceFolders?.[0];
@@ -13,7 +13,7 @@ export function getConfig(): LanguageSyncConfig {
 
   return {
     workspaceRoot: workspace.uri.fsPath,
-    languagesFolder: path.normalize(cfg.get<string>('languagesFolder', 'assets/languages')),
+    languagesFolder: path.normalize(cfg.get<string>('languagesFolder', 'src/assets/languages')),
     defaultLanguageCode: cfg.get<string>('defaultLanguageCode', 'en-US').trim() || 'en-US',
     defaultAliasFile: cfg.get<string>('defaultAliasFile', 'default.json').trim() || 'default.json',
     itemTemplate: cfg.get<Record<string, unknown>>('itemTemplate', {}),
@@ -29,11 +29,10 @@ export function getConfig(): LanguageSyncConfig {
       1,
       cfg.get<number>('processing.translationBatchItems', cfg.get<number>('processing.chunkSize', 25))
     ),
-    translationProvider: cfg.get<'ai' | 'mcp'>('translation.provider', 'ai'),
+    translationProvider: cfg.get<TranslationProvider>('translation.provider', 'copilot'),
     aiEndpoint: cfg.get<string>('ai.endpoint', '').trim(),
     aiModel: cfg.get<string>('ai.model', 'gpt-4.1-mini').trim() || 'gpt-4.1-mini',
-    mcpCommand: cfg.get<string>('mcp.command', '').trim(),
-    mcpArgs: cfg.get<string[]>('mcp.args', []),
+    copilotModel: cfg.get<string>('copilot.model', 'gpt-4.1').trim(),
     gitlabAllowInsecure: cfg.get<boolean>('gitlab.allowInsecure', false),
   };
 }
